@@ -1,0 +1,5 @@
+{"id":0,"prompt":"Write a function add(a, b) that returns the sum of two numbers.","entry_point":"add","tests":["assert add(1, 2) == 3","assert add(-1, 1) == 0"]}
+{"id":7,"prompt":"Write a function fibonacci(n) that returns the nth Fibonacci number.","entry_point":"fibonacci","tests":["assert fibonacci(0) == 0","assert fibonacci(1) == 1","assert fibonacci(10) == 55"]}
+{"id":14,"prompt":"Write a function count_words(s) that returns the number of words in s.","entry_point":"count_words","tests":["assert count_words('hello world') == 2","assert count_words('') == 0"]}
+{"id":21,"prompt":"Write a function sum_of_digits(n) that returns the sum of digits of n.","entry_point":"sum_of_digits","tests":["assert sum_of_digits(123) == 6","assert sum_of_digits(-45) == 9"]}
+{"id":28,"prompt":"Write a function nth_root(x, n) that returns the nth root of x.","entry_point":"nth_root","tests":["assert nth_root(8, 3) == 2.0","assert nth_root(16, 2) == 4.0"]}

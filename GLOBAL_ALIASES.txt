@@ -1,0 +1,2 @@
+alias k='skillsync'
+alias ks='skillsync sync'

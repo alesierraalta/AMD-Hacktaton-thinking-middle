@@ -1,0 +1,7 @@
+pytest
+transformers
+datasets
+peft
+trl
+torch
+gradio
