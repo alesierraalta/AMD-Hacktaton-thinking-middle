@@ -44,21 +44,23 @@
 
 ## Next Step
 
-**Execute Phase 1 on AMD Developer Cloud MI300X.**
+**Execute Phase 1C on Google Colab T4.**
 
-Use the operational runbook: [`sdd/codepause-phase-1-gpu-runbook.md`](../sdd/codepause-phase-1-gpu-runbook.md)
+Use the official notebook: [`notebooks/codepause_phase_1c_colab_only_qlora.ipynb`](../notebooks/codepause_phase_1c_colab_only_qlora.ipynb)
 
-Phase 1 must prove:
+Phase 1C must prove:
 
 ```text
-baseline → SFT/LoRA → evaluation → report
+baseline → QLoRA SFT → evaluation → report
 ```
 
-on real AMD GPU hardware. GRPO remains Phase 2.
+on Colab T4 hardware. GRPO remains Phase 2.
+
+*Note: The original AMD MI300X execution plan is deprecated to historical/optional status due to lack of access.*
 
 ## Blockers
 
-None. The project is ready for GPU execution.
+None. The project is ready for Colab GPU execution.
 
 ## Documentation Map
 

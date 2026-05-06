@@ -1,5 +1,7 @@
 # PRD — Fase 0: Preparación sin GPU para CodePause
 
+> **UPDATE (Phase 1C Pivot)**: The official execution environment has been changed from AMD MI300X to Google Colab T4. All references to "AMD Developer Cloud" in this document are now considered historical/optional.
+
 ## 1. Nombre del producto
 
 **CodePause: Think-Anywhere Code Generation on AMD**

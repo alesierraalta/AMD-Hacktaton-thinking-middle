@@ -54,9 +54,11 @@ python training/sft_lora.py \
   --max_seq_length 512
 ```
 
-## GPU Execution (AMD MI300X)
+## GPU Execution (Google Colab T4)
 
-Run inside the ROCm PyTorch container on AMD Developer Cloud.
+Run inside the official Colab notebook `codepause_phase_1c_colab_only_qlora.ipynb` on a T4 GPU runtime.
+
+*(Historical: Previously targeted for ROCm PyTorch container on AMD Developer Cloud.)*
 
 ```bash
 python training/sft_lora.py \

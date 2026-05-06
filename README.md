@@ -82,48 +82,33 @@ python eval/make_report.py --input_path results/baseline.jsonl
 python app/demo_mock.py
 ```
 
-## GPU Execution Plan
+## GPU Execution Plan (Official: Google Colab T4)
+
+The official execution environment for CodePause Phase 1 is **Google Colab T4**.
+
+1. **Open the official Colab Notebook**: `notebooks/codepause_phase_1c_colab_only_qlora.ipynb`
+2. **Select T4 GPU** runtime in Google Colab.
+3. **Mount Google Drive** to preserve outputs.
+4. **Run the Notebook** which automatically:
+   - Clones the repository
+   - Installs dependencies
+   - Runs the local test suite
+   - Trains the Qwen 0.5B smoke model (QLoRA)
+   - Evaluates the baseline vs fine-tuned 0.5B model
+   - Trains the Qwen 1.5B primary model (QLoRA)
+   - Evaluates the baseline vs fine-tuned 1.5B model
+   - Copies all results to Google Drive
+
+### Historical/Optional: AMD MI300X Execution Plan
+
+*Note: AMD MI300X is currently deprecated as the official path unless future credits appear.*
 
 When AMD Developer Cloud access is approved:
-
 1. **Create MI300X GPU Droplet** via AMD Developer Cloud portal
 2. **Select Quick Start → PyTorch** (ROCm-enabled container)
-3. **SSH into the VM** and access the container:
-   ```bash
-   docker exec -it rocm bash
-   ```
-4. **Clone this repo** and install requirements:
-   ```bash
-   git clone <repo-url>
-   cd codepause-amd
-   pip install -r requirements.txt
-   ```
-5. **Run baseline evaluation** with a real model:
-   ```bash
-   python eval/evaluate_baseline.py \
-     --model_name Qwen/Qwen2.5-0.5B \
-     --problems_path data/problems.jsonl \
-     --output_path results/baseline.jsonl
-   ```
-6. **Run SFT/LoRA training**:
-   ```bash
-   python training/sft_lora.py \
-     --model_name Qwen/Qwen2.5-0.5B \
-     --dataset_path data/thinkanywhere_sft.jsonl \
-     --output_dir results/sft \
-     --epochs 3 \
-     --max_seq_length 512 \
-     --learning_rate 2e-4 \
-     --lora_rank 16
-   ```
-7. **Run evaluation** on fine-tuned model and generate report:
-   ```bash
-   python eval/evaluate_baseline.py \
-     --model_name results/sft \
-     --problems_path data/problems.jsonl \
-     --output_path results/finetuned.jsonl
-   python eval/make_report.py --input_path results/finetuned.jsonl
-   ```
+3. **SSH into the VM** and access the container: `docker exec -it rocm bash`
+4. **Clone this repo** and install requirements.
+5. **Run training/evaluation** using the local CLI scripts.
 
 ## Metrics
 

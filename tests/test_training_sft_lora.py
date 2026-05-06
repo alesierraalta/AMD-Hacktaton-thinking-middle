@@ -351,3 +351,26 @@ class TestSftLoraQLoRAFlags:
                 sft.main()
         output = captured.getvalue()
         assert "[4BIT]" not in output  # 4-bit must not activate in smoke
+
+
+class TestModelsYamlIntegrity:
+    def test_phase_1c_tiers_present(self):
+        import yaml
+        import os
+        config_path = "config/models.yaml"
+        assert os.path.exists(config_path), "models.yaml not found"
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        presets = data.get("presets", {})
+        
+        expected_models = {
+            "local_colab_smoke": "Qwen/Qwen2.5-Coder-0.5B-Instruct",
+            "colab_primary_qwen": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+            "colab_non_qwen_granite": "ibm-granite/granite-3b-code-instruct-128k",
+            "colab_optional_gemma": "google/gemma-4-E2B",
+            "colab_stretch_qwen": "Qwen/Qwen2.5-Coder-3B-Instruct"
+        }
+        
+        for key, model_name in expected_models.items():
+            assert key in presets, f"Preset {key} missing in models.yaml"
+            assert presets[key]["model_name"] == model_name, f"Expected {model_name} for {key}"

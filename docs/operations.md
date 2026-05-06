@@ -2,7 +2,7 @@
 
 ## Cost Discipline
 
-GPU credit on AMD Developer Cloud is finite. Follow these rules to avoid wasting it.
+GPU access on Google Colab T4 (free tier) is limited and subject to disconnects. Follow these rules to avoid wasting compute limits.
 
 ### Allowed GPU Usage
 
@@ -19,15 +19,16 @@ GPU credit on AMD Developer Cloud is finite. Follow these rules to avoid wasting
 - Debugging unrelated local code
 - Running the full test suite repeatedly (do this locally)
 
-## GPU VM Rules
+## GPU Execution Rules (Colab T4)
 
-### Creation
+### Setup
 
-- Use **MI300X**, 1 GPU.
-- Select **Quick Start → PyTorch** image.
-- Verify SSH access before starting any work.
+- Use the official notebook: `notebooks/codepause_phase_1c_colab_only_qlora.ipynb`
+- Select **T4 GPU** in runtime settings.
+- Mount **Google Drive** to preserve outputs before doing any work.
 
-### Container Access
+### Historical: Container Access (AMD MI300X)
+*Note: Deprecated unless AMD credits are restored.*
 
 ```bash
 ssh root@<PUBLIC_IP>
@@ -63,7 +64,7 @@ Stop immediately and do not continue spending GPU credit if any of the following
 
 ## Output Preservation
 
-AMD Developer Cloud VMs are destroyed after use. **Outputs left only on the VM are lost.**
+Colab instances are ephemeral and destroyed after use or idle timeouts. **Outputs left only on the Colab instance are lost.**
 
 ### Required Preservation
 
@@ -74,15 +75,13 @@ AMD Developer Cloud VMs are destroyed after use. **Outputs left only on the VM a
 | Markdown report | Same as above |
 | Screenshots | Upload to submission portal or cloud storage |
 
-### VM Destruction
+### Colab Disconnects
 
-Do not just power off. AMD states that powered-off GPU VMs are still billed because resources remain reserved.
-
-**Destroy the instance when done.**
+Do not leave the tab idle for long periods. If disconnected, outputs in the local Colab directory are wiped. ALWAYS rely on the final `cp -r` to Drive.
 
 ## Operational Runbook
 
-For step-by-step GPU execution, see [`sdd/codepause-phase-1-gpu-runbook.md`](../sdd/codepause-phase-1-gpu-runbook.md).
+For step-by-step AMD execution (historical), see [`sdd/codepause-phase-1-gpu-runbook.md`](../sdd/codepause-phase-1-gpu-runbook.md). Colab execution is contained entirely in the official notebook.
 
 ## Pre-GPU Checklist
 
