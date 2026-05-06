@@ -100,9 +100,9 @@ def main():
         print("Dry run complete." if args.dry_run else "Smoke complete.")
         return
 
-    from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, BitsAndBytesConfig
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from peft import LoraConfig, get_peft_model, TaskType
-    from trl import SFTTrainer
+    from trl import SFTTrainer, SFTConfig
 
     # TRL >= 0.8: use processing_class instead of deprecated tokenizer arg
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
@@ -142,13 +142,14 @@ def main():
     )
     model = get_peft_model(model, lora_config)
 
-    training_args = TrainingArguments(
+    training_args = SFTConfig(
         output_dir=args.output_dir,
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
-        max_seq_length=args.max_seq_length,
+        max_length=args.max_seq_length,
+        max_steps=args.max_steps if args.max_steps is not None else -1,
         save_strategy="epoch",
         logging_steps=10,
     )
