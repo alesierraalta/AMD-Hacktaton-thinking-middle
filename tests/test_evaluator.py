@@ -194,3 +194,39 @@ class TestEvaluatorRealMode:
                 )
             for call in mock_run.call_args_list:
                 assert call.kwargs.get("timeout") == 10
+
+    def test_metadata_injected_into_records(self):
+        import eval.evaluator as ev
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "results.jsonl")
+            meta = {"model_name": "test-smoke", "hardware": "Colab T4", "phase": "0.8"}
+            ev.evaluate_model(
+                model_name="mock-model",
+                problems_path="data/problems.jsonl",
+                output_path=output_path,
+                mock=True,
+                metadata=meta,
+            )
+            with open(output_path, "r", encoding="utf-8") as f:
+                first = json.loads(f.readline())
+            assert "metadata" in first
+            assert first["metadata"]["model_name"] == "test-smoke"
+            assert first["metadata"]["hardware"] == "Colab T4"
+
+    def test_metadata_optional_omitted(self):
+        """When metadata is None, no metadata key appears in records."""
+        import eval.evaluator as ev
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "results.jsonl")
+            ev.evaluate_model(
+                model_name="mock-model",
+                problems_path="data/problems.jsonl",
+                output_path=output_path,
+                mock=True,
+                metadata=None,
+            )
+            with open(output_path, "r", encoding="utf-8") as f:
+                first = json.loads(f.readline())
+            assert "metadata" not in first

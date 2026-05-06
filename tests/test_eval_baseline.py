@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 from unittest import mock
+import io
 
 
 class TestEvaluateBaselineImport:
@@ -95,3 +96,64 @@ class TestEvaluateBaselineMock:
         output = captured.getvalue()
         for opt in ["--model_name", "--problems_path", "--output_path", "--mock"]:
             assert opt in output, f"{opt} not in help"
+
+
+class TestEvaluateBaselineMetadata:
+    def test_metadata_json_flag_exists(self):
+        import eval.evaluate_baseline as baseline
+
+        test_args = ["prog", "--help"]
+        with mock.patch.object(sys, "argv", test_args):
+            with mock.patch("sys.stdout", new=io.StringIO()) as captured:
+                try:
+                    baseline.parse_args()
+                except SystemExit:
+                    pass
+        output = captured.getvalue()
+        assert "--metadata_json" in output
+
+    def test_metadata_injected_into_jsonl(self):
+        import json
+        import tempfile
+        import eval.evaluate_baseline as baseline
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "baseline.jsonl")
+            meta_path = os.path.join(tmpdir, "meta.json")
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump({"model_name": "test-model", "hardware": "Colab T4", "phase": "0.8"}, f)
+
+            test_args = [
+                "prog",
+                "--model_name", "mock",
+                "--problems_path", "data/problems.jsonl",
+                "--output_path", output_path,
+                "--mock",
+                "--metadata_json", meta_path,
+            ]
+            with mock.patch.object(sys, "argv", test_args):
+                baseline.main()
+
+            with open(output_path, "r", encoding="utf-8") as f:
+                first_line = json.loads(f.readline())
+            assert "metadata" in first_line
+            assert first_line["metadata"]["model_name"] == "test-model"
+            assert first_line["metadata"]["hardware"] == "Colab T4"
+
+    def test_missing_metadata_file_raises(self):
+        import eval.evaluate_baseline as baseline
+
+        test_args = [
+            "prog",
+            "--model_name", "mock",
+            "--problems_path", "data/problems.jsonl",
+            "--output_path", "/tmp/out.jsonl",
+            "--mock",
+            "--metadata_json", "nonexistent_meta.json",
+        ]
+        with mock.patch.object(sys, "argv", test_args):
+            try:
+                baseline.main()
+                assert False, "Expected FileNotFoundError"
+            except FileNotFoundError:
+                pass

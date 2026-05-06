@@ -1,0 +1,51 @@
+# Model presets for CodePause training and evaluation
+# Usage: python training/sft_lora.py --preset <preset_name>
+#   or: python training/sft_lora.py --preset colab_primary_qwen
+#
+# Presets can be overridden by explicit CLI flags.
+
+presets:
+  local_colab_smoke:
+    model_name: "Qwen/Qwen2.5-Coder-0.5B-Instruct"
+    role: "colab_t4_smoke_qlora"
+    priority: 1
+    purpose: "Validate QLoRA adapter creation and evaluation on Colab T4."
+    trainable_in_project: true
+    use_in_colab_t4: true
+    quality_claims_allowed: false
+
+  colab_primary_qwen:
+    model_name: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    role: "colab_t4_primary_qlora"
+    priority: 2
+    purpose: "First meaningful Colab T4 QLoRA adapter for CodePause."
+    trainable_in_project: true
+    use_in_colab_t4: true
+    quality_claims_allowed: true
+
+  colab_non_qwen_granite:
+    model_name: "ibm-granite/granite-3b-code-instruct-128k"
+    role: "colab_t4_non_qwen_code_probe"
+    priority: 3
+    purpose: "Optional non-Qwen code-specific QLoRA probe."
+    trainable_in_project: true
+    use_in_colab_t4: true
+    quality_claims_allowed: true
+
+  colab_optional_gemma:
+    model_name: "google/gemma-4-E2B"
+    role: "colab_t4_modern_non_qwen_probe"
+    priority: 4
+    purpose: "Optional modern non-Qwen model probe if accessible and compatible."
+    trainable_in_project: true
+    use_in_colab_t4: true
+    quality_claims_allowed: true
+
+  colab_stretch_qwen:
+    model_name: "Qwen/Qwen2.5-Coder-3B-Instruct"
+    role: "colab_t4_stretch_qlora"
+    priority: 5
+    purpose: "Stretch QLoRA run only after 0.5B and 1.5B succeed."
+    trainable_in_project: true
+    use_in_colab_t4: "maybe"
+    quality_claims_allowed: true

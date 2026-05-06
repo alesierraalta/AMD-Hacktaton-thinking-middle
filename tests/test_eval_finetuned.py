@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 from unittest import mock
+import io
 
 import pytest
 
@@ -125,4 +126,47 @@ class TestEvaluateFinetunedMock:
                         adapter_path="mock-adapter",
                         mock=True,
                         timeout=5,
+                        metadata={},
                     )
+
+
+class TestEvaluateFinetunedMetadata:
+    def test_metadata_json_flag_exists(self):
+        import eval.evaluate_finetuned as ft
+
+        test_args = ["prog", "--help"]
+        with mock.patch.object(sys, "argv", test_args):
+            with mock.patch("sys.stdout", new=io.StringIO()) as captured:
+                try:
+                    ft.parse_args()
+                except SystemExit:
+                    pass
+        output = captured.getvalue()
+        assert "--metadata_json" in output
+
+    def test_metadata_passed_to_evaluator(self):
+        import json
+        import tempfile
+        import eval.evaluate_finetuned as ft
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "finetuned.jsonl")
+            meta_path = os.path.join(tmpdir, "meta.json")
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump({"model_name": "test-base", "hardware": "Colab T4"}, f)
+
+            test_args = [
+                "prog",
+                "--base_model", "mock-base",
+                "--adapter_path", "mock-adapter",
+                "--problems_path", "data/problems.jsonl",
+                "--output_path", output_path,
+                "--mock",
+                "--metadata_json", meta_path,
+            ]
+            with mock.patch.object(sys, "argv", test_args):
+                with mock.patch("eval.evaluate_finetuned.evaluate_model") as mock_eval:
+                    mock_eval.return_value = {"total": 30, "passed": 15, "pass_rate": 50.0}
+                    ft.main()
+                    _, kwargs = mock_eval.call_args
+                    assert kwargs["metadata"] == {"model_name": "test-base", "hardware": "Colab T4"}

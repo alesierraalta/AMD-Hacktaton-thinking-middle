@@ -131,3 +131,34 @@ class TestMakeReportComparison:
         output = captured.getvalue()
         for opt in ["--baseline", "--finetuned", "--out", "--input_path"]:
             assert opt in output, f"{opt} not in help"
+
+
+class TestMakeReportMetadata:
+    def test_comparison_report_surfaces_metadata(self):
+        import eval.make_report as report
+
+        baseline = [
+            {"id": "p1", "passed": True, "metadata": {"model_name": "Qwen2.5-0.5B", "hardware": "Colab T4", "phase": "0.8"}},
+            {"id": "p2", "passed": False, "metadata": {"model_name": "Qwen2.5-0.5B", "hardware": "Colab T4", "phase": "0.8"}},
+        ]
+        finetuned = [
+            {"id": "p1", "passed": True, "metadata": {"model_name": "Qwen2.5-0.5B", "hardware": "Colab T4", "phase": "0.8", "adapter_path": "/drive/adapters/0.5B"}},
+            {"id": "p2", "passed": True, "metadata": {"model_name": "Qwen2.5-0.5B", "hardware": "Colab T4", "phase": "0.8", "adapter_path": "/drive/adapters/0.5B"}},
+        ]
+        text = report.generate_comparison_report(baseline, finetuned)
+        assert "Provenance" in text
+        assert "Qwen2.5-0.5B" in text
+        assert "Colab T4" in text
+        assert "0.8" in text
+        assert "/drive/adapters/0.5B" in text
+
+    def test_comparison_report_without_metadata_still_works(self):
+        """No metadata present — report should still show the comparison table."""
+        import eval.make_report as report
+
+        baseline = [{"id": "p1", "passed": True}]
+        finetuned = [{"id": "p1", "passed": True}]
+        text = report.generate_comparison_report(baseline, finetuned)
+        assert "Evaluation Comparison Report" in text
+        assert "p1" in text
+        assert "Provenance" not in text  # no metadata → no provenance section

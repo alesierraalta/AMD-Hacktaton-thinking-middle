@@ -39,7 +39,16 @@ def evaluate_model(
     temperature=0.2,
     mock=False,
     timeout=5,
+    metadata=None,
 ):
+    """
+    Evaluate a model (or mock) on problems and write JSONL results.
+
+    metadata: optional dict injected into every result record under an
+              optional "metadata" key. Used by make_report.py to surface
+              pipeline provenance (model_name, adapter_path, hardware, etc.)
+              without changing the existing schema fields.
+    """
     problems = _load_problems(problems_path)
 
     model = None
@@ -71,14 +80,17 @@ def evaluate_model(
         tests = problem.get("tests", [])
         test_result = run_code(clean_code, tests, timeout=timeout)
         metrics = compute_metrics(clean_code, raw_output, test_result)
-        results.append({
+        record = {
             "id": problem.get("id", ""),
             "prompt": problem.get("prompt", ""),
             "raw_output": raw_output,
             "clean_code": clean_code,
             "passed": test_result.get("passed", False),
             "metrics": metrics,
-        })
+        }
+        if metadata:
+            record["metadata"] = metadata
+        results.append(record)
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:

@@ -45,19 +45,52 @@ def generate_comparison_report(baseline_results: list, finetuned_results: list) 
     finetuned_total = len(finetuned_results)
     finetuned_passed = sum(1 for r in finetuned_results if r.get("passed", False))
 
+    # Extract metadata if present (first record with metadata wins)
+    def _meta_key(results, key, default="N/A"):
+        for r in results:
+            m = r.get("metadata", {})
+            if key in m:
+                return m[key]
+        return default
+
+    baseline_meta = baseline_results[0].get("metadata", {}) if baseline_results else {}
+    finetuned_meta = finetuned_results[0].get("metadata", {}) if finetuned_results else {}
+
+    # Header with metadata if available
     lines = [
         "# Evaluation Comparison Report",
         "",
-        "| Metric | Baseline | Fine-tuned |",
-        "|--------|----------|------------|",
+        f"| Metric | Baseline | Fine-tuned |",
+        f"|--------|----------|------------|",
         f"| Total | {baseline_total} | {finetuned_total} |",
         f"| Passed | {baseline_passed} | {finetuned_passed} |",
-        f"| Pass rate | {baseline_passed / baseline_total * 100:.1f}%" if baseline_total else "| Pass rate | N/A",
     ]
+    if baseline_total:
+        lines.append(f"| Pass rate | {baseline_passed / baseline_total * 100:.1f}%")
+    else:
+        lines.append("| Pass rate | N/A")
     if finetuned_total:
         lines[-1] += f" | {finetuned_passed / finetuned_total * 100:.1f}% |"
     else:
         lines[-1] += " | N/A |"
+
+    # Metadata provenance block (only if metadata is present)
+    if baseline_meta or finetuned_meta:
+        lines.extend([
+            "",
+            "## Provenance",
+            "",
+        ])
+        if baseline_meta:
+            lines.append(f"- **Baseline model**: {baseline_meta.get('model_name', 'N/A')}")
+            if baseline_meta.get("adapter_path"):
+                lines.append(f"  - adapter: {baseline_meta['adapter_path']}")
+            lines.append(f"  - hardware: {baseline_meta.get('hardware', 'N/A')}, phase: {baseline_meta.get('phase', 'N/A')}")
+        if finetuned_meta:
+            lines.append(f"- **Fine-tuned model**: {finetuned_meta.get('model_name', 'N/A')}")
+            if finetuned_meta.get("adapter_path"):
+                lines.append(f"  - adapter: {finetuned_meta['adapter_path']}")
+            lines.append(f"  - hardware: {finetuned_meta.get('hardware', 'N/A')}, phase: {finetuned_meta.get('phase', 'N/A')}")
 
     lines.extend([
         "",

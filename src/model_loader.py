@@ -12,7 +12,7 @@ except ImportError:
     _PEFT_AVAILABLE = False
 
 
-def load_model_and_tokenizer(model_name, adapter_path=None, device_map="auto", torch_dtype="auto"):
+def load_model_and_tokenizer(model_name, adapter_path=None, device_map="auto", torch_dtype="auto", quantization_config=None):
     if AutoModelForCausalLM is None or AutoTokenizer is None:
         raise ImportError(
             "transformers is required for load_model_and_tokenizer. "
@@ -21,7 +21,8 @@ def load_model_and_tokenizer(model_name, adapter_path=None, device_map="auto", t
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, device_map=device_map, torch_dtype=torch_dtype
+        model_name, device_map=device_map, torch_dtype=torch_dtype,
+        quantization_config=quantization_config,
     )
 
     if adapter_path is not None:
