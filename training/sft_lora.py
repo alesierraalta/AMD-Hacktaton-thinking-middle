@@ -103,6 +103,7 @@ def main():
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from peft import LoraConfig, get_peft_model, TaskType
     from trl import SFTTrainer, SFTConfig
+    from datasets import Dataset
 
     # TRL >= 0.8: use processing_class instead of deprecated tokenizer arg
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
@@ -153,6 +154,8 @@ def main():
         save_strategy="epoch",
         logging_steps=10,
     )
+
+    dataset = Dataset.from_list(dataset)
 
     # TRL >= 0.8: processing_class replaces deprecated tokenizer kwarg
     trainer = SFTTrainer(
