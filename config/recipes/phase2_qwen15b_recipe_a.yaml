@@ -1,0 +1,26 @@
+# Recipe A: Standard QLoRA for Qwen 1.5B
+model_name: "Qwen/Qwen1.5-1.8B-Chat"
+dataset_path: "data/thinkanywhere_sft_v2.jsonl"
+output_dir: "outputs/phase2_recipe_a"
+
+# LoRA Parameters
+lora_r: 8
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# Training Parameters
+learning_rate: 2.0e-4
+batch_size: 4
+gradient_accumulation_steps: 4
+epochs: 3
+lr_scheduler_type: "cosine"
+warmup_steps: 100
+max_steps: 100
+limit_samples: 100
+max_seq_length: 1024
+
+# BitsAndBytes
+load_in_4bit: true
+bnb_4bit_compute_dtype: "float16"
+bnb_4bit_quant_type: "nf4"

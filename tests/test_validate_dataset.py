@@ -97,6 +97,19 @@ class TestValidateSchemaSFT:
         errors = validate_dataset.validate_schema_sft(record, line_num=1)
         assert any("must be string" in e for e in errors)
 
+    def test_valid_v2_sft_record(self):
+        from eval import validate_dataset
+        record = {"instruction": "Write foo", "response": "<thinkanywhere>think</thinkanywhere>\ndef foo(): pass"}
+        errors = validate_dataset.validate_schema_sft(record, line_num=1)
+        assert errors == []
+
+    def test_missing_v2_fields(self):
+        from eval import validate_dataset
+        # Missing response
+        record = {"instruction": "Write foo"}
+        errors = validate_dataset.validate_schema_sft(record, line_num=1)
+        assert any("missing required fields" in e for e in errors)
+
 
 class TestValidateSchemaProblems:
     def test_valid_problems_record(self):

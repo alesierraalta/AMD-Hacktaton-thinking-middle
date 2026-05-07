@@ -16,6 +16,8 @@ def parse_args():
     parser.add_argument("--output_path", type=str, required=True, help="Output path for results (JSONL)")
     parser.add_argument("--mock", action="store_true", help="Use mock generation instead of real model")
     parser.add_argument("--timeout", type=int, default=5, help="Sandbox timeout in seconds")
+    parser.add_argument("--prompt_template", type=str, default=None,
+                        help="Prompt template name (e.g., thinkanywhere_qwen_instruct)")
     parser.add_argument("--metadata_json", type=str, default=None,
                         help="Path to JSON file with metadata to inject into each result record (optional)")
     return parser.parse_args()
@@ -33,7 +35,7 @@ def _load_metadata_json(path: str | None):
 
 def main():
     args = parse_args()
-    print(f"Evaluating fine-tuned: base={args.base_model}, adapter={args.adapter_path}, problems={args.problems_path}")
+    print(f"Evaluating fine-tuned: base={args.base_model}, adapter={args.adapter_path}, problems={args.problems_path}, template={args.prompt_template}")
 
     metadata = _load_metadata_json(args.metadata_json)
     if metadata:
@@ -47,6 +49,7 @@ def main():
         mock=args.mock,
         timeout=args.timeout,
         metadata=metadata,
+        prompt_template=args.prompt_template,
     )
 
     print(f"Fine-tuned results saved to {args.output_path}")

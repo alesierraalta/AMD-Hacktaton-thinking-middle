@@ -1,0 +1,26 @@
+# Recipe C: Aggressive Rank for Qwen 1.5B (Fixed to r=8 per spec)
+model_name: "Qwen/Qwen1.5-1.8B-Chat"
+dataset_path: "data/thinkanywhere_sft_v2.jsonl"
+output_dir: "outputs/phase2_recipe_c"
+
+# LoRA Parameters
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.1
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# Training Parameters
+learning_rate: 2.0e-4
+batch_size: 2
+gradient_accumulation_steps: 8
+epochs: 3
+lr_scheduler_type: "cosine"
+warmup_steps: 100
+max_steps: 150
+limit_samples: 60
+max_seq_length: 512
+
+# BitsAndBytes
+load_in_4bit: true
+bnb_4bit_compute_dtype: "float16"
+bnb_4bit_quant_type: "nf4"

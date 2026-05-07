@@ -3,9 +3,20 @@ import os
 
 from src.model_loader import load_model_and_tokenizer
 from src.prompts import build_baseline_prompt
-from src.strip_thinking import strip_thinking_blocks
+from src.strip_thinking import extract_code
 from src.sandbox_runner import run_code
 from src.metrics import compute_metrics
+from src.prompt_templates import (
+    baseline_qwen_instruct,
+    thinkanywhere_qwen_instruct,
+    no_markdown_python_only,
+)
+
+PROMPT_TEMPLATES = {
+    "baseline_qwen_instruct": baseline_qwen_instruct,
+    "thinkanywhere_qwen_instruct": thinkanywhere_qwen_instruct,
+    "no_markdown_python_only": no_markdown_python_only,
+}
 
 
 def _load_problems(path: str):
@@ -15,8 +26,15 @@ def _load_problems(path: str):
         return [json.loads(line) for line in f if line.strip()]
 
 
-def _mock_generate(problem: dict) -> str:
-    prompt = build_baseline_prompt(problem)
+def _get_prompt(problem: dict, template_name: str = None) -> str:
+    instruction = problem.get("prompt", "")
+    if template_name and template_name in PROMPT_TEMPLATES:
+        return PROMPT_TEMPLATES[template_name](instruction)
+    return build_baseline_prompt(problem)
+
+
+def _mock_generate(problem: dict, template_name: str = None) -> str:
+    prompt = _get_prompt(problem, template_name)
     entry_point = problem.get("entry_point", "solve")
     raw = (
         f"{prompt}\n"
@@ -40,6 +58,7 @@ def evaluate_model(
     mock=False,
     timeout=5,
     metadata=None,
+    prompt_template=None,
 ):
     """
     Evaluate a model (or mock) on problems and write JSONL results.
@@ -67,9 +86,9 @@ def evaluate_model(
         problem_id = problem.get("id", index)
         print(f"Evaluating problem {index}/{total_problems}: {problem_id}", flush=True)
         if mock:
-            raw_output = _mock_generate(problem)
+            raw_output = _mock_generate(problem, prompt_template)
         else:
-            prompt = build_baseline_prompt(problem)
+            prompt = _get_prompt(problem, prompt_template)
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
             outputs = model.generate(
                 **inputs,
@@ -79,9 +98,13 @@ def evaluate_model(
             )
             raw_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        clean_code = strip_thinking_blocks(raw_output)
-        tests = problem.get("tests", [])
-        test_result = run_code(clean_code, tests, timeout=timeout)
+        clean_code, is_valid = extract_code(raw_output)
+        if not is_valid:
+            test_result = {"passed": False, "error": "AST SyntaxError"}
+        else:
+            tests = problem.get("tests", [])
+            test_result = run_code(clean_code, tests, timeout=timeout)
+        
         metrics = compute_metrics(clean_code, raw_output, test_result)
         record = {
             "id": problem.get("id", ""),

@@ -46,15 +46,30 @@ def parse_args():
 def validate_schema_sft(record: dict, line_num: int) -> list[str]:
     """Validate a single SFT record. Returns list of error messages."""
     errors = []
-    if "text" not in record:
-        errors.append(f"line {line_num}: missing required field 'text'")
-    if "problem_id" not in record:
-        errors.append(f"line {line_num}: missing required field 'problem_id'")
-    text = record.get("text", "")
-    if text and not isinstance(text, str):
-        errors.append(f"line {line_num}: 'text' must be string, got {type(text).__name__}")
-    if isinstance(text, str) and len(text) < 5:
-        errors.append(f"line {line_num}: 'text' too short (< 5 chars)")
+    # Support legacy 'text' OR hardened 'instruction'+'response'
+    has_text = "text" in record
+    has_v2 = "instruction" in record and "response" in record
+    
+    if not (has_text or has_v2):
+        errors.append(f"line {line_num}: missing required fields (must have 'text' OR 'instruction' and 'response')")
+    
+    if has_text:
+        text = record.get("text", "")
+        if not isinstance(text, str):
+            errors.append(f"line {line_num}: 'text' must be string, got {type(text).__name__}")
+        elif len(text) < 5:
+            errors.append(f"line {line_num}: 'text' too short (< 5 chars)")
+        if "problem_id" not in record:
+            errors.append(f"line {line_num}: missing required field 'problem_id' for legacy schema")
+            
+    if has_v2:
+        for field in ("instruction", "response"):
+            val = record.get(field, "")
+            if not isinstance(val, str):
+                errors.append(f"line {line_num}: '{field}' must be string, got {type(val).__name__}")
+            elif len(val) < 2:
+                errors.append(f"line {line_num}: '{field}' too short")
+                
     return errors
 
 
@@ -100,17 +115,23 @@ def compute_stats(records: list[dict], schema: str) -> dict:
     """Compute statistics over the dataset."""
     stats = {
         "total": len(records),
-        "total_chars": sum(len(r.get("text", r.get("prompt", ""))) for r in records),
+        "total_chars": sum(len(str(r.get("text", r.get("prompt", r.get("instruction", "") + r.get("response", ""))))) for r in records),
     }
 
     if schema == "sft":
-        text_lengths = [len(r.get("text", "")) for r in records]
+        text_lengths = []
+        for r in records:
+            if "text" in r:
+                text_lengths.append(len(str(r["text"])))
+            elif "instruction" in r:
+                text_lengths.append(len(str(r["instruction"])) + len(str(r["response"])))
+        
         stats["avg_text_len"] = sum(text_lengths) / len(text_lengths) if text_lengths else 0
         stats["min_text_len"] = min(text_lengths) if text_lengths else 0
         stats["max_text_len"] = max(text_lengths) if text_lengths else 0
 
         # Tag balance check
-        thinkanywhere_count = sum(1 for r in records if "<thinkanywhere>" in r.get("text", ""))
+        thinkanywhere_count = sum(1 for r in records if "<thinkanywhere>" in str(r.get("text", "")) or "<thinkanywhere>" in str(r.get("response", "")))
         stats["thinkanywhere_tags"] = thinkanywhere_count
         stats["thinkanywhere_ratio"] = thinkanywhere_count / len(records) if records else 0
     else:
@@ -163,10 +184,16 @@ def validate_dataset(
 
     # cp1252 fix check for SFT schema
     if schema == "sft" and records:
-        sample_texts = [r.get("text", "") for r in records[:5]]
+        sample_texts = []
+        for r in records[:5]:
+            if "text" in r:
+                sample_texts.append(r["text"])
+            elif "response" in r:
+                sample_texts.append(r["response"])
+        
         for i, text in enumerate(sample_texts, start=1):
             if text and not check_cp1252_fixes(text):
-                errors.append(f"line {i}: possible cp1252 artifact detected in 'text'")
+                errors.append(f"line {i}: possible cp1252 artifact detected")
 
     # Stats
     stats = compute_stats(records, schema)

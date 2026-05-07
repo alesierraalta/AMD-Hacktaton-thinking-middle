@@ -1,0 +1,5 @@
+{"id": "sanity_1", "prompt": "Write a python function `add(a, b)` that returns the sum of two numbers.", "entry_point": "add", "tests": ["assert add(2, 3) == 5", "assert add(-1, 1) == 0"]}
+{"id": "sanity_2", "prompt": "Write a python function `square(x)` that returns the square of a number.", "entry_point": "square", "tests": ["assert square(4) == 16", "assert square(0) == 0"]}
+{"id": "sanity_3", "prompt": "Write a python function `is_even(n)` that returns True if n is even, False otherwise.", "entry_point": "is_even", "tests": ["assert is_even(4) == True", "assert is_even(3) == False"]}
+{"id": "sanity_4", "prompt": "Write a python function `reverse_string(s)` that returns the reversed string.", "entry_point": "reverse_string", "tests": ["assert reverse_string('abc') == 'cba'", "assert reverse_string('') == ''"]}
+{"id": "sanity_5", "prompt": "Write a python function `max_of_two(a, b)` that returns the maximum of two numbers.", "entry_point": "max_of_two", "tests": ["assert max_of_two(5, 10) == 10", "assert max_of_two(3, -2) == 3"]}

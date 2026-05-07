@@ -1,0 +1,26 @@
+# Recipe B: Conservative LR for Qwen 1.5B
+model_name: "Qwen/Qwen1.5-1.8B-Chat"
+dataset_path: "data/thinkanywhere_sft_v2.jsonl"
+output_dir: "outputs/phase2_recipe_b"
+
+# LoRA Parameters
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.1
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+# Training Parameters
+learning_rate: 1.0e-4
+batch_size: 4
+gradient_accumulation_steps: 4
+epochs: 5
+lr_scheduler_type: "linear"
+warmup_steps: 50
+max_steps: 200
+limit_samples: 100
+max_seq_length: 1024
+
+# BitsAndBytes
+load_in_4bit: true
+bnb_4bit_compute_dtype: "float16"
+bnb_4bit_quant_type: "nf4"
