@@ -127,6 +127,7 @@ class TestEvaluateFinetunedMock:
                         mock=True,
                         timeout=5,
                         metadata={},
+                        prompt_template=None,
                     )
 
 

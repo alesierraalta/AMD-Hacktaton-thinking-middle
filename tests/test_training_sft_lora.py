@@ -69,6 +69,39 @@ class TestLoadDataset:
         result = sft._load_dataset(str(path), limit=5)
         assert len(result) == 5
 
+
+
+    def test_load_dataset_normalizes_instruction_response_records(self, tmp_path):
+        import json
+        import training.sft_lora as sft
+
+        path = tmp_path / "phase2.jsonl"
+        record = {
+            "instruction": "Write a function that doubles a number.",
+            "response": "<thinkanywhere>Multiply by two.</thinkanywhere>\ndef double(x): return x * 2",
+        }
+        path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+        result = sft._load_dataset(str(path))
+
+        assert len(result) == 1
+        assert set(result[0]) == {"text"}
+        assert "### Instruction:" in result[0]["text"]
+        assert record["instruction"] in result[0]["text"]
+        assert "### Response:" in result[0]["text"]
+        assert record["response"] in result[0]["text"]
+
+    def test_load_dataset_rejects_unsupported_sft_schema(self, tmp_path):
+        import json
+        import pytest
+        import training.sft_lora as sft
+
+        path = tmp_path / "bad.jsonl"
+        path.write_text(json.dumps({"instruction": "Write foo"}) + "\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="Unsupported SFT record schema"):
+            sft._load_dataset(str(path))
+
     def test_load_dataset_missing_file(self):
         import training.sft_lora as sft
 

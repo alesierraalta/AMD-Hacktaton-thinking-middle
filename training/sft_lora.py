@@ -45,8 +45,48 @@ def parse_args():
     return parser.parse_args()
 
 
+def _format_instruction_response(instruction: str, response: str) -> str:
+    """Format instruction/response pair into a TRL-compatible `text` field."""
+    return (
+        f"### Instruction:\n{instruction.strip()}\n\n"
+        f"### Response:\n{response.strip()}\n"
+    )
+
+
+def _normalize_sft_record(record: dict) -> dict:
+    """Normalize an SFT record to TRL-compatible format.
+
+    - Records with `text` field: returned unchanged (legacy format).
+    - Records with `instruction` + `response`: normalized to single `text` field.
+    - Records with only `instruction` (no `response`): raise ValueError.
+    - Other schemas: raise ValueError.
+    """
+    if "text" in record:
+        # Legacy TRL format (possibly with extra fields) — pass through unchanged
+        return record
+    if "instruction" in record and "response" in record:
+        return {"text": _format_instruction_response(record["instruction"], record["response"])}
+    if "instruction" in record and "response" not in record:
+        raise ValueError(
+            f"Unsupported SFT record schema: record has `instruction` but no `response`. "
+            f"Each SFT record must have either `text` (legacy TRL format) or both "
+            f"`instruction` and `response` fields."
+        )
+    raise ValueError(
+        f"Unsupported SFT record schema: record has keys {list(record.keys())}. "
+        f"Expected either `text` (legacy TRL format) or `instruction` + `response`."
+    )
+
+
 def _load_dataset(path: str, limit: int | None = None):
-    """Load JSONL dataset with encoding fallback for Windows cp1252 TRL chat templates."""
+    """Load JSONL dataset with normalization to TRL-compatible `text` format.
+
+    Handles two schemas:
+    - Legacy TRL format: records with only a `text` field — returned unchanged.
+    - Phase 2 format: records with `instruction` + `response` — normalized to `text`.
+
+    Raises ValueError for malformed records before model load.
+    """
     if not os.path.exists(path):
         raise FileNotFoundError(f"Dataset not found: {path}")
     # Try UTF-8 first, fall back to cp1252 on Windows for internal TRL chat template files
@@ -60,6 +100,7 @@ def _load_dataset(path: str, limit: int | None = None):
                 raise
             continue
     records = [json.loads(line) for line in lines if line.strip()]
+    records = [_normalize_sft_record(r) for r in records]
     if limit is not None:
         records = records[:limit]
     return records
