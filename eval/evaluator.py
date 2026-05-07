@@ -62,7 +62,10 @@ def evaluate_model(
         )
 
     results = []
-    for problem in problems:
+    total_problems = len(problems)
+    for index, problem in enumerate(problems, start=1):
+        problem_id = problem.get("id", index)
+        print(f"Evaluating problem {index}/{total_problems}: {problem_id}", flush=True)
         if mock:
             raw_output = _mock_generate(problem)
         else:
