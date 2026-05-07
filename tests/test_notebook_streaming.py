@@ -56,8 +56,8 @@ def test_phase2_notebook_uses_real_recipe_a_training_and_adapter_path():
 def test_phase2_setup_installs_training_dependencies_and_refreshes_repo():
     source = notebook_source(Path('notebooks/codepause_phase_2_quality_scale.ipynb'))
     assert 'trl' in source
-    assert 'git fetch origin' in source
-    assert 'git reset --hard origin/' in source
+    assert '["git", "fetch", "origin", BRANCH]' in source
+    assert '["git", "reset", "--hard", f"origin/{BRANCH}"]' in source
 
 
 
@@ -71,3 +71,37 @@ def test_colab_probe_uses_current_cli_flags():
     assert '--baseline_path' not in source
     assert '--finetuned_path' not in source
     assert '--output_path' in source
+
+
+
+def test_phase2_runtime_order_is_fresh_run_safe():
+    notebook = json.loads(Path('notebooks/codepause_phase_2_quality_scale.ipynb').read_text(encoding='utf-8-sig'))
+    sources = [''.join(cell.get('source', [])) for cell in notebook.get('cells', [])]
+    joined = '\n'.join(sources)
+    training_pos = joined.index('Recipe A QLoRA training')
+    probe_pos = joined.index('Adapter probe')
+    finetuned_pos = joined.index('Fine-tuned sanity evaluation')
+    assert training_pos < probe_pos < finetuned_pos
+
+
+def test_phase2_setup_uses_python_git_refresh_not_indented_magics():
+    source = notebook_source(Path('notebooks/codepause_phase_2_quality_scale.ipynb'))
+    assert 'subprocess.run(cmd' in source
+    assert 'git fetch origin' not in source
+    assert '!git fetch' not in source
+    assert '!git reset' not in source
+    assert '%cd {REPO_DIR}' not in source
+
+
+def test_phase2_drive_export_persists_adapter_and_results():
+    source = notebook_source(Path('notebooks/codepause_phase_2_quality_scale.ipynb'))
+    assert 'outputs/phase2_recipe_a' in source
+    assert 'results' in source
+    assert 'copytree' in source or 'copy2' in source
+
+
+
+def test_phase2_setup_removes_incompatible_torchao():
+    source = notebook_source(Path('notebooks/codepause_phase_2_quality_scale.ipynb'))
+    assert 'torchao' in source
+    assert 'pip uninstall -y -q torchao' in source or 'pip uninstall -y torchao' in source

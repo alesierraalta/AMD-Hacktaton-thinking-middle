@@ -96,7 +96,7 @@ def evaluate_model(
                 temperature=temperature,
                 do_sample=True,
             )
-            raw_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            raw_output = tokenizer.decode(outputs[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
 
         clean_code, is_valid = extract_code(raw_output)
         if not is_valid:
