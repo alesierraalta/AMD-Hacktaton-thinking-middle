@@ -1,9 +1,9 @@
 """Tests for Main Evaluation pipeline enhancements in codepause_phase_2_quality_scale.ipynb.
 
 These tests validate the 4 notebook-only enhancements per the SDD design:
-1. Mock dry-run cell (validates CLI wiring before expensive GPU eval)
-2. Pre-flight dataset validation (validates 30 rows, required keys)
-3. Metadata provenance generation (phase, model, hardware, timestamp, git_sha, notebook)
+1. Metadata provenance generation (phase, model, hardware, timestamp, git_sha, notebook)
+2. Mock dry-run cell (validates CLI wiring before expensive GPU eval)
+3. Pre-flight dataset validation (validates 30 rows, required keys)
 4. Inline report display (IPython.display.Markdown after make_report calls)
 """
 import json
@@ -27,7 +27,7 @@ def all_sources():
 
 
 class TestMockDryRunCell:
-    """Cell 1b: Mock dry-run validates CLI args + wiring before GPU eval."""
+    """Cell 1c: Mock dry-run validates CLI args + wiring before GPU eval."""
 
     def test_mock_dry_run_cell_exists_after_setup(self):
         sources = notebook_sources()
@@ -39,9 +39,9 @@ class TestMockDryRunCell:
                 setup_idx = i
                 break
         assert setup_idx is not None, "Setup cell not found"
-        # Next code cell after setup should be the mock
+        # Metadata must be generated before the mock because the mock wires --metadata_json.
         assert len(sources) > setup_idx + 1, "No cell after setup"
-        mock_src = sources[setup_idx + 1]
+        mock_src = sources[setup_idx + 2]
         assert '--mock' in mock_src, "Mock cell must use --mock flag"
 
     def test_mock_cell_calls_evaluate_baseline(self):
@@ -62,7 +62,7 @@ class TestMockDryRunCell:
 
 
 class TestPreFlightValidationCell:
-    """Cell 1c: Pre-flight dataset validation using validate_dataset.py."""
+    """Cell 1d: Pre-flight dataset validation using validate_dataset.py."""
 
     def test_preflight_cell_exists_after_mock(self):
         sources = notebook_sources()
@@ -96,19 +96,19 @@ class TestPreFlightValidationCell:
 
 
 class TestMetadataGenerationCell:
-    """Cell 1d: Metadata provenance generation for results/metadata_run.json."""
+    """Cell 1b: Metadata provenance generation for results/metadata_run.json."""
 
     def test_metadata_generation_cell_exists(self):
         sources = notebook_sources()
-        # Find preflight cell
-        preflight_idx = None
+        # Find setup cell; metadata must be immediately after setup.
+        setup_idx = None
         for i, src in enumerate(sources):
-            if 'validate_dataset.py' in src and 'problems.jsonl' in src:
-                preflight_idx = i
+            if 'subprocess.run' in src and 'BRANCH' in src:
+                setup_idx = i
                 break
-        assert preflight_idx is not None, "Preflight cell not found"
-        assert len(sources) > preflight_idx + 1, "No cell after preflight"
-        metadata_src = sources[preflight_idx + 1]
+        assert setup_idx is not None, "Setup cell not found"
+        assert len(sources) > setup_idx + 1, "No cell after setup"
+        metadata_src = sources[setup_idx + 1]
         # Should write metadata JSON
         assert 'metadata_run.json' in metadata_src, "Metadata cell must reference metadata_run.json"
 
@@ -246,7 +246,19 @@ class TestInlineReportDisplay:
 
 
 class TestPipelineOrder:
-    """Validate the pipeline cell ordering: Setup → Mock → Pre-flight → Metadata → Evals → Reports."""
+    """Validate the pipeline cell ordering: Setup → Metadata → Mock → Pre-flight → Evals → Reports."""
+
+    def test_cell_order_metadata_before_mock(self):
+        sources = notebook_sources()
+        metadata_idx = mock_idx = None
+        for i, src in enumerate(sources):
+            if 'metadata_run.json' in src and 'torch.cuda' in src and 'validate_dataset.py' not in src:
+                metadata_idx = i
+            if '--mock' in src and 'evaluate_baseline.py' in src:
+                mock_idx = i
+        assert metadata_idx is not None and mock_idx is not None, \
+            f"metadata_idx={metadata_idx}, mock_idx={mock_idx}"
+        assert metadata_idx < mock_idx, "Metadata must be generated before mock uses --metadata_json"
 
     def test_cell_order_mock_before_preflight(self):
         sources = notebook_sources()
@@ -259,17 +271,17 @@ class TestPipelineOrder:
         assert mock_idx is not None and preflight_idx is not None
         assert mock_idx < preflight_idx, "Mock should come before pre-flight"
 
-    def test_cell_order_preflight_before_metadata(self):
+    def test_cell_order_metadata_before_preflight(self):
         sources = notebook_sources()
         preflight_idx = metadata_idx = None
         for i, src in enumerate(sources):
             if 'validate_dataset.py' in src:
                 preflight_idx = i
-            if 'metadata_run.json' in src and 'validate_dataset.py' not in src:
+            if 'metadata_run.json' in src and 'torch.cuda' in src and 'validate_dataset.py' not in src:
                 metadata_idx = i
         assert preflight_idx is not None and metadata_idx is not None, \
             f"preflight_idx={preflight_idx}, metadata_idx={metadata_idx}"
-        assert preflight_idx < metadata_idx, "Pre-flight should come before metadata generation"
+        assert metadata_idx < preflight_idx, "Metadata should come before pre-flight and eval cells"
 
     def test_cell_order_metadata_before_evals(self):
         sources = notebook_sources()
