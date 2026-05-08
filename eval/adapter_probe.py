@@ -11,11 +11,7 @@ def probe_adapter(base_model_name, adapter_path, prompt):
     
     if not os.path.exists(adapter_path):
         print(f"ERROR: Adapter path {adapter_path} does not exist.")
-        return
-
-    # Load config
-    config = PeftConfig.from_pretrained(adapter_path)
-    print(f"Adapter Config: {config}")
+        return False
 
     # Load Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
@@ -51,8 +47,17 @@ def probe_adapter(base_model_name, adapter_path, prompt):
         print(adapter_text)
 
     # Comparison
-    diff = "YES" if base_text != adapter_text else "NO"
-    print(f"\nOutputs differ: {diff}")
+    diff = base_text != adapter_text
+    print(f"\nOutputs differ: {'YES' if diff else 'NO'}")
+    
+    # Cleanup to avoid OOM
+    del model
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        
+    return diff
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

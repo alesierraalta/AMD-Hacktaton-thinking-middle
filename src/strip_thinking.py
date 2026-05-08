@@ -22,8 +22,20 @@ def count_thinkanywhere_blocks(text: str) -> int:
     return len(re.findall(r"<thinkanywhere>.*?</thinkanywhere>", text, flags=re.DOTALL))
 
 def extract_code(text: str) -> tuple[str, bool]:
+    """
+    Extract code from model output with priority:
+    1. First ```python ... ``` block
+    2. First ``` ... ``` block (any language)
+    3. Raw output (if no blocks found)
+    
+    Hardened for Phase 3:
+    - Strips <think> and <thinkanywhere> blocks
+    - Preserves internal indentation
+    - Strips leading/trailing newlines
+    - Validates with ast.parse
+    """
     # 1. Prefer ```python
-    python_blocks = re.findall(r"```python\s*\n(.*?)```", text, flags=re.DOTALL)
+    python_blocks = re.findall(r"```python\s*(.*?)```", text, flags=re.DOTALL)
     if python_blocks:
         code = python_blocks[0]
     else:
@@ -38,14 +50,18 @@ def extract_code(text: str) -> tuple[str, bool]:
     # Strip thinking blocks from the extracted portion
     code = strip_thinking_blocks(code)
     
-    # Preserve indentation but remove leading/trailing newlines
-    code = code.strip("\n")
+    # Preserve indentation but remove leading/trailing whitespace/newlines
+    code = code.strip()
     
     # Validate with ast.parse
     is_valid = True
-    try:
-        ast.parse(code)
-    except SyntaxError:
+    if not code:
         is_valid = False
-        
+    else:
+        try:
+            import ast
+            ast.parse(code)
+        except SyntaxError:
+            is_valid = False
+            
     return code, is_valid

@@ -5,6 +5,7 @@ Validates JSONL datasets for schema compliance and statistics.
 import argparse
 import json
 import sys
+import os
 from collections import Counter
 
 
@@ -87,10 +88,30 @@ def validate_schema_problems(record: dict, line_num: int) -> list[str]:
         errors.append(f"line {line_num}: 'tests' must be list, got {type(tests).__name__}")
     elif len(tests) == 0:
         errors.append(f"line {line_num}: 'tests' list is empty")
+    else:
+        # Check if entry_point appears in at least one test
+        entry_point = record.get("entry_point", "");
+        if entry_point and not any(entry_point in str(t) for t in tests):
+            errors.append(f"line {line_num}: entry_point '{entry_point}' not found in any test")
+        
     return errors
 
 
 def validate_record(record: dict, line_num: int, schema: str) -> list[str]:
+    if schema == "sft":
+        return validate_schema_sft(record, line_num)
+    return validate_schema_problems(record, line_num)
+
+def check_duplicates(records, schema):
+    from collections import Counter
+    errors = []
+    ids = [r.get("id") for r in records if r.get("id")]
+    counts = Counter(ids)
+    for rid, count in counts.items():
+        if count > 1:
+            errors.append(f"Duplicate ID detected: {rid} appears {count} times")
+    return errors
+
     if schema == "sft":
         return validate_schema_sft(record, line_num)
     return validate_schema_problems(record, line_num)
@@ -142,12 +163,36 @@ def compute_stats(records: list[dict], schema: str) -> dict:
     return stats
 
 
+def check_overlap(records: list[dict], reference_path: str = "data/problems.jsonl") -> list[str]:
+    """Check for overlap between current records and Phase 2 main dataset."""
+    errors = []
+    if not os.path.exists(reference_path):
+        return errors
+        
+    with open(reference_path, "r", encoding="utf-8") as f:
+        ref_records = [json.loads(line) for line in f if line.strip()]
+        
+    ref_ids = {r.get("id") for r in ref_records if r.get("id")}
+    ref_prompts = {r.get("prompt") for r in ref_records if r.get("prompt")}
+    
+    for r in records:
+        rid = r.get("id")
+        prompt = r.get("prompt")
+        if rid in ref_ids:
+            errors.append(f"Overlap detected: ID '{rid}' already exists in Phase 2 main dataset")
+        if prompt in ref_prompts:
+            errors.append(f"Overlap detected: Substantial prompt already exists in Phase 2 main dataset")
+            
+    return errors
+
+
 def validate_dataset(
     dataset_path: str,
     schema: str = "sft",
     min_examples: int = 1,
     max_examples: int | None = None,
     quiet: bool = False,
+    check_phase2_overlap: bool = True,
 ) -> bool:
     """
     Validate a JSONL dataset file.
@@ -182,6 +227,15 @@ def validate_dataset(
     for i, record in enumerate(records, start=1):
         errors.extend(validate_record(record, i, schema))
 
+    # Duplicate check
+    errors.extend(check_duplicates(records, schema))
+    
+    # Overlap check (Phase 3 Hard-stop)
+    if schema == "problems" and check_phase2_overlap:
+        # Don't check overlap if validating the main dataset itself
+        if "data/problems.jsonl" not in dataset_path.replace("\\", "/"):
+            errors.extend(check_overlap(records))
+
     # cp1252 fix check for SFT schema
     if schema == "sft" and records:
         sample_texts = []
@@ -199,10 +253,15 @@ def validate_dataset(
     stats = compute_stats(records, schema)
 
     # Size checks
-    if stats["total"] < min_examples:
-        errors.append(f"dataset has {stats['total']} examples, minimum required is {min_examples}")
-    if max_examples is not None and stats["total"] > max_examples:
-        errors.append(f"dataset has {stats['total']} examples, maximum allowed is {max_examples}")
+    if schema == "problems":
+        # Phase 3 Hard-stop: held-out set must be exactly 30 records
+        if stats["total"] != 30:
+            errors.append(f"Phase 3 Requirement: 'problems' dataset must have exactly 30 records (found {stats['total']})")
+    else:
+        if stats["total"] < min_examples:
+            errors.append(f"dataset has {stats['total']} examples, minimum required is {min_examples}")
+        if max_examples is not None and stats["total"] > max_examples:
+            errors.append(f"dataset has {stats['total']} examples, maximum allowed is {max_examples}")
 
     # Report
     if not quiet:

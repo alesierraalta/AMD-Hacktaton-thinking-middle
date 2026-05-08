@@ -221,16 +221,18 @@ class TestValidateDatasetIntegration:
 
     def test_validate_valid_problems_dataset(self, tmp_path):
         from eval import validate_dataset
+        # Test 30-record problems dataset with IDs offset to avoid Phase 2 overlap.
+        # Phase 3 hard-stop: problems schema requires exactly 30 records — no override.
         records = [
-            _make_problems_record(id=i, tests=["assert foo()"])
-            for i in range(3)
+            _make_problems_record(id=i + 100, tests=["assert foo()"])
+            for i in range(30)
         ]
         path = tmp_path / "problems.jsonl"
         with open(path, "w", encoding="utf-8") as f:
             for r in records:
                 f.write(json.dumps(r) + "\n")
 
-        result = validate_dataset.validate_dataset(str(path), schema="problems", quiet=True)
+        result = validate_dataset.validate_dataset(str(path), schema="problems", quiet=True, check_phase2_overlap=False)
         assert result is True
 
     def test_empty_file_raises(self, tmp_path):
@@ -284,10 +286,10 @@ class TestValidateDatasetIntegration:
             json.dumps({"text": "def foo():\n    pass", "extra": "field"}) + "\n",
             encoding="utf-8"
         )
-
+        # Overlap check is bypassed for data/problems.jsonl itself; non-default paths need check_phase2_overlap=False
         errors_found = []
         try:
-            validate_dataset.validate_dataset(str(path), schema="sft", quiet=True)
+            validate_dataset.validate_dataset(str(path), schema="sft", quiet=True, check_phase2_overlap=False)
         except SystemExit as e:
             if e.code == 1:
                 errors_found = ["SystemExit(1)"]
