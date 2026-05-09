@@ -15,8 +15,21 @@ def parse_args():
     )
     parser.add_argument(
         "dataset_path",
+        nargs="?",
         type=str,
         help="Path to JSONL dataset file",
+    )
+    parser.add_argument(
+        "--sft_path",
+        type=str,
+        default=None,
+        help="Path to SFT JSONL dataset file (alias for dataset_path, used by Phase 3.5 acceptance commands)",
+    )
+    parser.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help="Optional Markdown quality report output path",
     )
     parser.add_argument(
         "--schema",
@@ -42,6 +55,47 @@ def parse_args():
         help="Only print errors",
     )
     return parser.parse_args()
+
+
+def _read_jsonl_records(dataset_path: str) -> list[dict]:
+    for encoding in ("utf-8", "cp1252", "latin-1"):
+        try:
+            with open(dataset_path, "r", encoding=encoding) as f:
+                return [json.loads(line) for line in f if line.strip()]
+        except UnicodeDecodeError:
+            if encoding == "latin-1":
+                raise
+            continue
+    return []
+
+
+def write_quality_report(dataset_path: str, schema: str, out_path: str) -> None:
+    records = _read_jsonl_records(dataset_path)
+    stats = compute_stats(records, schema)
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+
+    lines = [
+        "# Dataset Quality Report",
+        "",
+        f"- Dataset: `{dataset_path}`",
+        f"- Schema: `{schema}`",
+        f"- Total examples: {stats['total']}",
+    ]
+    if schema == "sft":
+        lines.extend([
+            f"- Average text length: {stats['avg_text_len']:.1f} chars",
+            f"- Text length range: {stats['min_text_len']}–{stats['max_text_len']} chars",
+            f"- `<thinkanywhere>` tags: {stats['thinkanywhere_tags']} ({stats['thinkanywhere_ratio']:.1%})",
+        ])
+    else:
+        lines.extend([
+            f"- Total tests: {stats['total_tests']}",
+            f"- Average tests per problem: {stats['avg_tests']:.1f}",
+        ])
+    lines.extend(["", "Validation: **PASSED**", ""])
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
 
 
 def validate_schema_sft(record: dict, line_num: int) -> list[str]:
@@ -291,13 +345,20 @@ def validate_dataset(
 
 def main():
     args = parse_args()
+    dataset_path = args.sft_path or args.dataset_path
+    if not dataset_path:
+        raise SystemExit("dataset_path or --sft_path is required")
     validate_dataset(
-        args.dataset_path,
+        dataset_path,
         schema=args.schema,
         min_examples=args.min_examples,
         max_examples=args.max_examples,
         quiet=args.quiet,
     )
+    if args.out:
+        write_quality_report(dataset_path, args.schema, args.out)
+        if not args.quiet:
+            print(f"Report saved to {args.out}")
 
 
 if __name__ == "__main__":

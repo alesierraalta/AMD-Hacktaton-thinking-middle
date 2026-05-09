@@ -18,6 +18,14 @@ def minimal_python_function(problem: str) -> str:
 def no_markdown_python_only(problem: str) -> str:
     return f"{problem}\n# Respond ONLY with valid Python code. Do not use Markdown blocks.\n"
 
+def best_phase3_prompt(problem: str) -> str:
+    """
+    Promoted Phase 3 best prompt: thinkanywhere_qwen_instruct.
+    Identified from Phase 3 ablation as best-performing template.
+    Used for Phase 3.5 hard-gate evaluation (adapter_v3 + best_prompt > base + best_prompt).
+    """
+    return thinkanywhere_qwen_instruct(problem)
+
 def get_prompt_template(template_id: str, lang: str = "en", model_family: str = "qwen"):
     """
     Select prompt template by ID with dynamic lang/model_family selection.
@@ -44,6 +52,8 @@ def get_prompt_template(template_id: str, lang: str = "en", model_family: str = 
         return no_markdown_python_only
     if template_id == "minimal_python_function":
         return minimal_python_function
+    if template_id == "best_phase3_prompt":
+        return best_phase3_prompt
     raise ValueError(f"Unknown template_id: {template_id!r}")
 
 
@@ -55,4 +65,5 @@ PROMPT_TEMPLATE_REGISTRY = {
     "thinkanywhere_qwen_es": thinkanywhere_qwen_es,
     "no_markdown_python_only": no_markdown_python_only,
     "minimal_python_function": minimal_python_function,
+    "best_phase3_prompt": best_phase3_prompt,
 }

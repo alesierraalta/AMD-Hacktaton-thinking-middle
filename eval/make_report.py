@@ -44,6 +44,10 @@ def generate_comparison_report(baseline_results: list, finetuned_results: list) 
     baseline_passed = sum(1 for r in baseline_results if r.get("passed", False))
     finetuned_total = len(finetuned_results)
     finetuned_passed = sum(1 for r in finetuned_results if r.get("passed", False))
+    delta_passed = finetuned_passed - baseline_passed
+    baseline_rate = (baseline_passed / baseline_total * 100.0) if baseline_total else 0.0
+    finetuned_rate = (finetuned_passed / finetuned_total * 100.0) if finetuned_total else 0.0
+    delta_rate = finetuned_rate - baseline_rate
 
     # Extract metadata if present (first record with metadata wins)
     def _meta_key(results, key, default="N/A"):
@@ -94,6 +98,32 @@ def generate_comparison_report(baseline_results: list, finetuned_results: list) 
 
     lines.extend([
         "",
+        "## Delta",
+        "",
+        f"- Baseline score: {baseline_passed}/{baseline_total} ({baseline_rate:.1f}%)",
+        f"- Fine-tuned score: {finetuned_passed}/{finetuned_total} ({finetuned_rate:.1f}%)",
+        f"- Delta: {delta_passed:+d}/{baseline_total} ({delta_rate:+.1f}pp)",
+        f"- Adapter contributes beyond prompt: {'YES' if finetuned_passed > baseline_passed else 'NO'}",
+        "",
+        "## Phase 3.5 Hard Gate",
+        "",
+        "Requirement: `adapter_v3 + best_prompt > base + best_prompt`",
+        "",
+        f"Verdict: {'PASS' if finetuned_passed > baseline_passed else 'FAIL'}",
+        "",
+        "## Comparison Against Phase 3 Held-Out Results",
+        "",
+        "- Phase 3 real T4 held-out: baseline 4/30 -> fine-tuned 8/30 (+13.3pp).",
+        "- Phase 3.5 same-prompt comparison: "
+        f"{baseline_passed}/{baseline_total} -> {finetuned_passed}/{finetuned_total} ({delta_rate:+.1f}pp).",
+        "- Valid Phase 2 caveat: use Phase 2 v2 real result 24/30 -> 25/30 (+3.3pp); do not use unsupported 23/30 -> 26/30 without recovered artifacts.",
+        "",
+        "## Failure Taxonomy Summary",
+        "",
+        "- Remaining failures are executable-code correctness failures, not just tag-placement failures.",
+        "- Persistent risk areas: boundary cases, parsing/indexing, empty inputs, loops, and recursion.",
+        "- Adapter regressions must be inspected before scaling.",
+        "",
         "## Per-problem comparison",
         "",
     ])
@@ -108,6 +138,27 @@ def generate_comparison_report(baseline_results: list, finetuned_results: list) 
         b_status = "PASS" if b_pass else "FAIL"
         f_status = "PASS" if f_pass else "FAIL"
         lines.append(f"- {mid}: Baseline={b_status}, Fine-tuned={f_status}")
+
+    gains = [mid for mid in all_ids if not baseline_by_id.get(mid, {}).get("passed", False) and finetuned_by_id.get(mid, {}).get("passed", False)]
+    regressions = [mid for mid in all_ids if baseline_by_id.get(mid, {}).get("passed", False) and not finetuned_by_id.get(mid, {}).get("passed", False)]
+
+    lines.extend([
+        "",
+        "## Aggregate Flips",
+        "",
+        f"- Adapter gains: {len(gains)} ({', '.join(map(str, gains)) if gains else 'none'})",
+        f"- Adapter regressions: {len(regressions)} ({', '.join(map(str, regressions)) if regressions else 'none'})",
+        "",
+        "## Limitations",
+        "",
+        "- This result should not be claimed as an AMD result unless run on AMD hardware.",
+        "- Absolute pass rate may still be low even when the hard gate passes.",
+        "- A positive adapter delta does not remove the need for failure-driven dataset refinement.",
+        "",
+        "## Next Recommended Step",
+        "",
+        "Refine the dataset around persistent failures and adapter regressions before scaling the model.",
+    ])
 
     return "\n".join(lines)
 

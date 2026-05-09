@@ -6,3 +6,5 @@ dist/
 bin/
 __pycache__/
 .pytest_cache/
+drive/
+phase3_5_bundle.zip

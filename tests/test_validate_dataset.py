@@ -65,6 +65,20 @@ class TestValidateDatasetArgs:
             args = validate_dataset.parse_args()
         assert args.quiet is True
 
+    def test_parse_args_phase3_5_aliases(self):
+        from eval import validate_dataset
+
+        test_args = [
+            "prog",
+            "--sft_path", "data/thinkanywhere_sft_v3.jsonl",
+            "--out", "results/phase3_5_dataset_v3_quality_report.md",
+        ]
+        with mock.patch.object(sys, "argv", test_args):
+            args = validate_dataset.parse_args()
+        assert args.dataset_path is None
+        assert args.sft_path == "data/thinkanywhere_sft_v3.jsonl"
+        assert args.out == "results/phase3_5_dataset_v3_quality_report.md"
+
 
 class TestValidateSchemaSFT:
     def test_valid_sft_record(self):

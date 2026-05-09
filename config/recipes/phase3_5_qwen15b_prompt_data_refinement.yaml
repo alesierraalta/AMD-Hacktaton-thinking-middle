@@ -1,0 +1,30 @@
+﻿# Recipe: Phase 3.5 — Prompt & Data Refinement
+# Model: Qwen/Qwen1.5-1.8B-Chat
+# Dataset: data/thinkanywhere_sft_v3.jsonl
+# Purpose: Determine if adapter_v3 + best_prompt outperforms base + best_prompt
+
+model_name: "Qwen/Qwen1.5-1.8B-Chat"
+dataset_path: "data/thinkanywhere_sft_v3.jsonl"
+output_dir: "results/sft_phase3_5_v3"
+
+# LoRA Parameters
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# Training Parameters
+learning_rate: 1e-4
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+max_steps: 150
+max_seq_length: 1024
+epochs: 1
+
+# BitsAndBytes
+load_in_4bit: true
+bnb_4bit_compute_dtype: "float16"
+bnb_4bit_quant_type: "nf4"
+
+# Hardware
+device: "auto"
