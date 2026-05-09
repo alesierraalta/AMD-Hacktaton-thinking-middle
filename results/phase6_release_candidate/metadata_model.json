@@ -1,0 +1,22 @@
+{
+  "project": "CodePause",
+  "phase": "6",
+  "artifact_type": "LoRA/QLoRA adapter",
+  "base_model": "Qwen/Qwen1.5-1.8B-Chat",
+  "adapter_source_phase": "Phase 5 rebuilt from v5 dataset",
+  "training_environment": "Google Colab T4",
+  "framework": "Transformers + TRL + PEFT + BitsAndBytes",
+  "best_known_result": {
+    "baseline": "1/30",
+    "adapter": "3/30",
+    "delta": "+2/30"
+  },
+  "limitations": [
+    "Prototype-level quality",
+    "Not robust enough for production",
+    "No AMD results claimed",
+    "Adapter improves over controlled baseline but absolute score remains low"
+  ],
+  "rebuild_note": "Original Phase 5 runtime artifact was lost; adapter recreated from v5 recipe.",
+  "source_repo": "https://github.com/alesierraalta/AMD-Hacktaton-thinking-middle.git"
+}

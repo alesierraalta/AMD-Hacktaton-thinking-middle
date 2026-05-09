@@ -1,0 +1,3 @@
+{"id": "prob1", "passed": true, "raw_output": "<thinkanywhere> reasoning </thinkanywhere> code"}
+{"id": "prob2", "passed": true, "raw_output": "<thinkanywhere> reasoning </thinkanywhere> code"}
+{"id": "prob3", "passed": false, "raw_output": "bad output"}

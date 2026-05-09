@@ -1,0 +1,34 @@
+# sdd/config.yaml
+schema: spec-driven
+artifact_store:
+  mode: openspec/file
+  root: sdd
+
+context: |
+  Project: CodePause (AMD Hackathon)
+  Tech stack: Python, Transformers, PEFT, TRL, Gradio, Pytest.
+  Architecture: QLoRA Fine-tuning workflow.
+  Environment: Google Colab T4 (Official for final claims).
+  Commands: Always prefix with 'rtk'.
+
+rules:
+  proposal:
+    - Include Colab T4 compatibility check
+    - Identify impact on training/eval metrics
+  specs:
+    - Scenarios MUST include expected model behavior/outputs
+    - Define dataset versioning requirements
+  design:
+    - Document hyperparameter choices and rationale
+    - Include memory usage estimates for T4 (16GB VRAM)
+  tasks:
+    - Use hierarchical numbering (e.g., 6.1.1)
+    - Group by: Setup, Implementation, Validation
+  apply:
+    - Use 'rtk' for all shell operations
+    - Follow established training patterns in scripts/
+  verify:
+    - Run pytest suite
+    - Verify T4 execution if possible (log review)
+  archive:
+    - Sync specs to sdd/specs/ before closing

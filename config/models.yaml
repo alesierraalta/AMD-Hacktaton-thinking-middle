@@ -45,7 +45,17 @@ presets:
     model_name: "Qwen/Qwen2.5-Coder-3B-Instruct"
     role: "colab_t4_stretch_qlora"
     priority: 5
-    purpose: "Stretch QLoRA run only after 0.5B and 1.5B succeed."
+    purpose: "Stretch QLoRA run only after 0.5B and 1.5B succeed. Fallback if 7B OOMs."
     trainable_in_project: true
     use_in_colab_t4: "maybe"
     quality_claims_allowed: true
+
+  colab_final_qwen25_7b:
+    model_name: "Qwen/Qwen2.5-Coder-7B-Instruct"
+    role: "colab_t4_final_qlora"
+    priority: 6
+    purpose: "Final Phase 7 QLoRA 4-bit fine-tune on Colab T4 with thinkanywhere special tokens. Falls back to colab_stretch_qwen (3B) on OOM."
+    trainable_in_project: true
+    use_in_colab_t4: true
+    quality_claims_allowed: true
+    recipe: "config/recipes/final_qwen25_7b.yaml"

@@ -2,6 +2,7 @@
 
 ## Project Conventions
 - **RTK (Rust Token Killer)**: Always prefix commands with `rtk`. (Source: `CLAUDE.md`)
+- **CodePause Environment**: Official environment for final claims is **Google Colab T4**. (16GB VRAM constraint).
 - **PRD-driven Phase 0**: Focus on preparation without GPU. (Source: `PRD_Fase_0_CodePause.md`)
 - **Strict TDD**: Active development mode requiring tests before code.
 - **Serena Symbolic Tools**: Use `find_symbol`, `insert_after_symbol`, etc., instead of full file reads.

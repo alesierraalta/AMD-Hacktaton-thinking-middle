@@ -1,0 +1,2 @@
+888ac052e380736e5133f0338dc0005320cc461d7e6c65b06f9e3f7fae6db0b8  adapter_config.json
+34e0c6895d15850ef3227424edce57aaa0dc67f0257c24bec969afe72fc77e80  adapter_model.safetensors

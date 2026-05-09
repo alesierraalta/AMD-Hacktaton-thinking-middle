@@ -8,3 +8,6 @@ __pycache__/
 .pytest_cache/
 drive/
 phase3_5_bundle.zip
+llama.cpp/
+results/phase6_merged_model/
+results/*.gguf

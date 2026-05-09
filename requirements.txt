@@ -5,3 +5,6 @@ peft
 trl
 torch
 gradio
+accelerate
+safetensors
+sentencepiece

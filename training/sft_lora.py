@@ -32,6 +32,12 @@ def parse_args():
                         help="Per-device training batch size")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
                         help="Gradient accumulation steps")
+    parser.add_argument("--gradient_checkpointing", action="store_true",
+                        help="Enable gradient checkpointing for memory efficiency")
+    parser.add_argument("--special_tokens", action="store_true",
+                        help="Add <thinkanywhere> special tokens and resize embeddings")
+    parser.add_argument("--lora_all_linear", action="store_true",
+                        help="Target all linear layers for LoRA (q, k, v, o, gate, up, down)")
     parser.add_argument("--dry-run", action="store_true", help="Validate config and dataset without training")
     parser.add_argument("--smoke", action="store_true",
                         help="Smoke test: tiny-gpt2, 5 steps, CPU-safe, no real training")
@@ -42,6 +48,8 @@ def parse_args():
     parser.add_argument("--device", type=str, default="auto",
                         choices=["auto", "cpu"],
                         help="Device for training: auto (GPU if available) or cpu")
+    parser.add_argument("--recipe", type=str, default=None,
+                        help="Path to YAML recipe file to override arguments")
     return parser.parse_args()
 
 
@@ -112,6 +120,36 @@ def _load_dataset(path: str, limit: int | None = None):
 def main():
     args = parse_args()
 
+    if args.recipe:
+        import yaml
+        print(f"Loading recipe from {args.recipe}")
+        with open(args.recipe, "r", encoding="utf-8") as f:
+            recipe = yaml.safe_load(f)
+
+        numeric_fields = {
+            "epochs": int,
+            "max_seq_length": int,
+            "learning_rate": float,
+            "lora_rank": int,
+            "lora_alpha": int,
+            "lora_dropout": float,
+            "per_device_train_batch_size": int,
+            "gradient_accumulation_steps": int,
+            "max_steps": int,
+            "limit_samples": int,
+        }
+
+        for key, value in recipe.items():
+            if hasattr(args, key):
+                if key in numeric_fields and isinstance(value, str):
+                    try:
+                        value = numeric_fields[key](value)
+                    except ValueError:
+                        print(f"Warning: Could not coerce '{key}' value '{value}' to {numeric_fields[key].__name__}")
+                setattr(args, key, value)
+            else:
+                print(f"Warning: Recipe key '{key}' not recognized as a command line argument.")
+
     print(f"Config: model={args.model_name}, dataset={args.dataset_path}, output={args.output_dir}")
     print(f"Training: epochs={args.epochs}, max_seq_length={args.max_seq_length}, lr={args.learning_rate}")
     print(f"LoRA: rank={args.lora_rank}, alpha={args.lora_alpha or args.lora_rank * 2}, dropout={args.lora_dropout}, grad_accum={args.gradient_accumulation_steps}, per_device_bs={args.per_device_train_batch_size}")
@@ -152,6 +190,16 @@ def main():
     # TRL >= 0.8: use processing_class instead of deprecated tokenizer arg
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
 
+    if args.special_tokens:
+        SPECIAL_TOKENS = ["<thinkanywhere>", "</thinkanywhere>"]
+        print(f"[TOKENS] Adding special tokens: {SPECIAL_TOKENS}")
+        num_added = tokenizer.add_special_tokens({"additional_special_tokens": SPECIAL_TOKENS})
+        print(f"[TOKENS] Added {num_added} new tokens.")
+    
+    if tokenizer.pad_token is None:
+        print("[TOKENS] Setting pad_token to eos_token")
+        tokenizer.pad_token = tokenizer.eos_token
+
     # Build quantization config if 4-bit loading is requested
     quantization_config = None
     if args.load_in_4bit:
@@ -176,11 +224,25 @@ def main():
         quantization_config=quantization_config,
     )
 
+    if args.special_tokens:
+        print(f"[MODEL] Resizing embeddings to {len(tokenizer)}")
+        model.resize_token_embeddings(len(tokenizer))
+
+    if args.gradient_checkpointing:
+        print("[MODEL] Enabling gradient checkpointing")
+        model.gradient_checkpointing_enable()
+
     lora_alpha = args.lora_alpha if args.lora_alpha is not None else args.lora_rank * 2
+    
+    target_modules = ["q_proj", "v_proj"]
+    if args.lora_all_linear:
+        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    print(f"[LORA] Target modules: {target_modules}")
+
     lora_config = LoraConfig(
         r=args.lora_rank,
         lora_alpha=lora_alpha,
-        target_modules=["q_proj", "v_proj"],
+        target_modules=target_modules,
         lora_dropout=args.lora_dropout,
         bias="none",
         task_type=TaskType.CAUSAL_LM,
@@ -197,6 +259,7 @@ def main():
         max_steps=args.max_steps if args.max_steps is not None else -1,
         save_strategy="epoch",
         logging_steps=10,
+        use_cpu=(args.device == "cpu"),
     )
 
     dataset = Dataset.from_list(dataset)
