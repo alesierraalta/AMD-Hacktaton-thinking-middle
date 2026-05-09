@@ -38,6 +38,8 @@ class TestEvaluatorMockMode:
             assert "total" in summary
             assert "passed" in summary
             assert "pass_rate" in summary
+            assert "thinking_loops" in summary
+            assert "lazy_outputs" in summary
             assert summary["total"] == len(lines)
 
     def test_mock_returns_summary_with_counts(self):
@@ -55,6 +57,8 @@ class TestEvaluatorMockMode:
             assert summary["total"] >= 30
             assert 0 <= summary["passed"] <= summary["total"]
             assert 0.0 <= summary["pass_rate"] <= 100.0
+            assert "thinking_loops" in summary
+            assert "lazy_outputs" in summary
 
     def test_mock_exercises_strip_and_metrics(self):
         import eval.evaluator as ev
@@ -78,6 +82,9 @@ class TestEvaluatorMockMode:
             assert "thinkanywhere_blocks" in metrics
             assert "executable_after_strip" in metrics
             assert "clean_code_lines" in metrics
+            # New metrics for Phase 4
+            assert "has_thinking_loop" in metrics
+            assert "is_lazy" in metrics
 
 
 class TestEvaluatorRealMode:
@@ -176,7 +183,7 @@ class TestEvaluatorRealMode:
                 output_path=output_path,
                 mock=True,
             )
-            assert summary == {"total": 0, "passed": 0, "pass_rate": 0.0}
+            assert summary == {"total": 0, "passed": 0, "pass_rate": 0.0, "thinking_loops": 0, "lazy_outputs": 0}
 
     def test_timeout_passed_to_run_code(self):
         import eval.evaluator as ev

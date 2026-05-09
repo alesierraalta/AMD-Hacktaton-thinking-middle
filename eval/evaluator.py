@@ -107,14 +107,6 @@ def run_ablation(
 ):
     """
     Run the 4-arm ablation matrix sequentially with cache clearing between arms.
-
-    Arms:
-      A — base model + base prompt
-      B — base model + thinkanywhere prompt
-      C — SFT adapter + thinkanywhere prompt
-      D — SFT adapter + minimal prompt (Phase 3 corrected)
-
-    Results are written to ``output_dir`` as ``arm_{A|B|C|D}.jsonl``.
     """
     # Phase 3 Hard-stop: Validate dataset before starting
     print(f"Validating dataset: {problems_path}")
@@ -129,7 +121,6 @@ def run_ablation(
     if adapter_path and not mock:
         print(f"Running adapter probe hard-stop for: {adapter_path}")
         from eval.adapter_probe import probe_adapter
-        # Use a distinctive prompt that should trigger ThinkAnywhere behaviors if loaded
         probe_prompt = "Write a python function to add two numbers. You may use <thinkanywhere> tags."
         if not probe_adapter(base_model_name, adapter_path, probe_prompt):
             print("ERROR: Adapter probe failed (no difference detected). Hard-stop triggered.")
@@ -149,7 +140,6 @@ def run_ablation(
         print(f"ARM {arm}: {label}")
         print(f"{'='*60}")
 
-        # Determine adapter for this arm (C and D need it)
         arm_adapter = adapter_path if arm in ("C", "D") else None
         arm_model = base_model_name
 
@@ -175,15 +165,119 @@ def run_ablation(
         )
 
         print(f"ARM {arm} complete — {summary['passed']}/{summary['total']} passed "
-              f"({summary['pass_rate']:.1f}%)")
+              f"({summary['pass_rate']:.1f}%). Loops: {summary['thinking_loops']}, Lazy: {summary['lazy_outputs']}")
 
         arm_results[arm] = summary
 
-        # Clear cache between arms to prevent T4 OOM
         if not mock:
             _clear_model_cache()
 
     return arm_results
+
+
+def _mock_generate(problem: dict, template_name: str = None) -> str:
+    prompt = _get_prompt(problem, template_name)
+    entry_point = problem.get("entry_point", "solve")
+    raw = (
+        f"{prompt}\n"
+        f"<think>Plan: implement {entry_point} carefully.</think>\n"
+        f"```python\n"
+        f"def {entry_point}():\n"
+        f"    <thinkanywhere>Validate edge cases here.</thinkanywhere>\n"
+        f"    pass\n"
+        f"```"
+    )
+    return raw
+
+
+def evaluate_model(
+    model_name,
+    problems_path,
+    output_path,
+    adapter_path=None,
+    max_new_tokens=512,
+    temperature=0.2,
+    mock=False,
+    timeout=5,
+    metadata=None,
+    prompt_template=None,
+):
+    """
+    Evaluate a model (or mock) on problems and write JSONL results.
+    """
+    problems = _load_problems(problems_path)
+
+    model = None
+    tokenizer = None
+    if not mock:
+        model, tokenizer = load_model_and_tokenizer(
+            model_name,
+            adapter_path=adapter_path,
+            device_map="auto",
+            torch_dtype="auto",
+        )
+
+    results = []
+    total_problems = len(problems)
+    loops_count = 0
+    lazy_count = 0
+
+    for index, problem in enumerate(problems, start=1):
+        problem_id = problem.get("id", index)
+        print(f"Evaluating problem {index}/{total_problems}: {problem_id}", flush=True)
+        if mock:
+            raw_output = _mock_generate(problem, prompt_template)
+        else:
+            prompt = _get_prompt(problem, prompt_template)
+            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                do_sample=True,
+            )
+            raw_output = tokenizer.decode(outputs[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
+
+        clean_code, is_valid = extract_code(raw_output)
+        if not is_valid:
+            test_result = {"passed": False, "error": "AST SyntaxError"}
+        else:
+            tests = problem.get("tests", [])
+            test_result = run_code(clean_code, tests, timeout=timeout)
+        
+        metrics = compute_metrics(clean_code, raw_output, test_result)
+        
+        if metrics.get("has_thinking_loop"):
+            loops_count += 1
+        if metrics.get("is_lazy"):
+            lazy_count += 1
+
+        record = {
+            "id": problem.get("id", ""),
+            "prompt": problem.get("prompt", ""),
+            "raw_output": raw_output,
+            "clean_code": clean_code,
+            "passed": test_result.get("passed", False),
+            "metrics": metrics,
+        }
+        if metadata:
+            record["metadata"] = metadata
+        results.append(record)
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        for r in results:
+            f.write(json.dumps(r) + "\n")
+
+    total = len(results)
+    passed = sum(1 for r in results if r["passed"])
+    return {
+        "total": total,
+        "passed": passed,
+        "pass_rate": (passed / total * 100.0) if total else 0.0,
+        "thinking_loops": loops_count,
+        "lazy_outputs": lazy_count,
+    }
 
 
 def main():
@@ -196,7 +290,6 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--mock", action="store_true")
     parser.add_argument("--timeout", type=int, default=5)
-    # Ablation-specific options
     parser.add_argument("--ablation", action="store_true",
                         help="Run 4-arm ablation instead of single evaluation")
     parser.add_argument("--output_dir", type=str, default="results/ablation",
@@ -233,107 +326,8 @@ def main():
             metadata=metadata,
         )
         print(f"Results: {summary['passed']}/{summary['total']} passed "
-              f"({summary['pass_rate']:.1f}%)")
+              f"({summary['pass_rate']:.1f}%). Loops: {summary['thinking_loops']}, Lazy: {summary['lazy_outputs']}")
 
 
 if __name__ == "__main__":
     main()
-
-
-def _mock_generate(problem: dict, template_name: str = None) -> str:
-    prompt = _get_prompt(problem, template_name)
-    entry_point = problem.get("entry_point", "solve")
-    raw = (
-        f"{prompt}\n"
-        f"<think>Plan: implement {entry_point} carefully.</think>\n"
-        f"```python\n"
-        f"def {entry_point}():\n"
-        f"    <thinkanywhere>Validate edge cases here.</thinkanywhere>\n"
-        f"    pass\n"
-        f"```"
-    )
-    return raw
-
-
-def evaluate_model(
-    model_name,
-    problems_path,
-    output_path,
-    adapter_path=None,
-    max_new_tokens=512,
-    temperature=0.2,
-    mock=False,
-    timeout=5,
-    metadata=None,
-    prompt_template=None,
-):
-    """
-    Evaluate a model (or mock) on problems and write JSONL results.
-
-    metadata: optional dict injected into every result record under an
-              optional "metadata" key. Used by make_report.py to surface
-              pipeline provenance (model_name, adapter_path, hardware, etc.)
-              without changing the existing schema fields.
-    """
-    problems = _load_problems(problems_path)
-
-    model = None
-    tokenizer = None
-    if not mock:
-        model, tokenizer = load_model_and_tokenizer(
-            model_name,
-            adapter_path=adapter_path,
-            device_map="auto",
-            torch_dtype="auto",
-        )
-
-    results = []
-    total_problems = len(problems)
-    for index, problem in enumerate(problems, start=1):
-        problem_id = problem.get("id", index)
-        print(f"Evaluating problem {index}/{total_problems}: {problem_id}", flush=True)
-        if mock:
-            raw_output = _mock_generate(problem, prompt_template)
-        else:
-            prompt = _get_prompt(problem, prompt_template)
-            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                do_sample=True,
-            )
-            raw_output = tokenizer.decode(outputs[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
-
-        clean_code, is_valid = extract_code(raw_output)
-        if not is_valid:
-            test_result = {"passed": False, "error": "AST SyntaxError"}
-        else:
-            tests = problem.get("tests", [])
-            test_result = run_code(clean_code, tests, timeout=timeout)
-        
-        metrics = compute_metrics(clean_code, raw_output, test_result)
-        record = {
-            "id": problem.get("id", ""),
-            "prompt": problem.get("prompt", ""),
-            "raw_output": raw_output,
-            "clean_code": clean_code,
-            "passed": test_result.get("passed", False),
-            "metrics": metrics,
-        }
-        if metadata:
-            record["metadata"] = metadata
-        results.append(record)
-
-    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        for r in results:
-            f.write(json.dumps(r) + "\n")
-
-    total = len(results)
-    passed = sum(1 for r in results if r["passed"])
-    return {
-        "total": total,
-        "passed": passed,
-        "pass_rate": (passed / total * 100.0) if total else 0.0,
-    }

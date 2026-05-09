@@ -1,5 +1,5 @@
 import pytest
-from src.metrics import compute_metrics
+from src.metrics import compute_metrics, has_thinking_loops, is_lazy_output
 
 
 class TestComputeMetrics:
@@ -63,3 +63,48 @@ class TestComputeMetrics:
         )
         assert result["clean_code_lines"] == 0
         assert result["executable_after_strip"] is False
+
+class TestThinkingLoops:
+    def test_detects_repeated_lines(self):
+        repetitive = """<thinkanywhere>
+Observation: Checking input for errors.
+Plan: Do X carefully now.
+Observation: Checking input for errors.
+Plan: Do X carefully now.
+Observation: Checking input for errors.
+Plan: Do X carefully now.
+Observation: Checking input for errors.
+Plan: Do X carefully now.
+</thinkanywhere>"""
+        assert has_thinking_loops(repetitive) is True
+
+    def test_detects_ngram_repetition(self):
+        repetitive = "This is a very long loop that repeats. This is a very long loop that repeats. This is a very long loop that repeats."
+        assert has_thinking_loops(repetitive) is True
+
+    def test_no_loop_normal_flow(self):
+        normal = """<thinkanywhere>
+Observation: Input is a list.
+Plan: Iterate and sum.
+Edge Cases: Empty list returns 0.
+Verification: Checked with [1, 2, 3].
+</thinkanywhere>"""
+        assert has_thinking_loops(normal) is False
+
+class TestLazyOutput:
+    def test_detects_boolean_laziness(self):
+        assert is_lazy_output("return True") is True
+        assert is_lazy_output("return False") is True
+
+    def test_detects_trivial_return(self):
+        assert is_lazy_output("return None") is True
+
+    def test_not_lazy_with_logic(self):
+        code = """def is_leap(y):
+    if y % 400 == 0: return True
+    if y % 100 == 0: return False
+    return y % 4 == 0"""
+        assert is_lazy_output(code) is False
+
+    def test_not_lazy_assignment(self):
+        assert is_lazy_output("x = True\\nreturn x") is False
