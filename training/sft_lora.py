@@ -7,7 +7,7 @@ import sys
 def parse_args():
     parser = argparse.ArgumentParser(description="SFT/LoRA fine-tuning for Think-Anywhere")
     parser.add_argument("--model_name", type=str, required=True, help="Model name or path")
-    parser.add_argument("--dataset_path", type=str, required=True, help="Path to SFT dataset (JSONL)")
+    parser.add_argument("--dataset_path", type=str, default="data/thinkanywhere_sft_v5.jsonl", help="Path to SFT dataset (JSONL)")
     parser.add_argument("--output_dir", type=str, default="results/sft", help="Output directory")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
     parser.add_argument("--max_seq_length", type=int, default=1024, help="Max sequence length")
@@ -58,6 +58,7 @@ def _normalize_sft_record(record: dict) -> dict:
 
     - Records with `text` field: returned unchanged (legacy format).
     - Records with `instruction` + `response`: normalized to single `text` field.
+    - Records with `prompt` + `raw_output`: normalized to single `text` field (Dataset v1-v4 format).
     - Records with only `instruction` (no `response`): raise ValueError.
     - Other schemas: raise ValueError.
     """
@@ -66,6 +67,8 @@ def _normalize_sft_record(record: dict) -> dict:
         return record
     if "instruction" in record and "response" in record:
         return {"text": _format_instruction_response(record["instruction"], record["response"])}
+    if "prompt" in record and "raw_output" in record:
+        return {"text": _format_instruction_response(record["prompt"], record["raw_output"])}
     if "instruction" in record and "response" not in record:
         raise ValueError(
             f"Unsupported SFT record schema: record has `instruction` but no `response`. "
@@ -74,7 +77,7 @@ def _normalize_sft_record(record: dict) -> dict:
         )
     raise ValueError(
         f"Unsupported SFT record schema: record has keys {list(record.keys())}. "
-        f"Expected either `text` (legacy TRL format) or `instruction` + `response`."
+        f"Expected either `text` (legacy TRL format), `instruction` + `response`, or `prompt` + `raw_output`."
     )
 
 
