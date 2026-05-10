@@ -62,6 +62,24 @@ def main() -> None:
         trust_remote_code=True,
     )
 
+    # Force resize token embeddings to match adapter if there's a mismatch
+    # (Happens with some Qwen base vs instruct versions)
+    print("Checking for tokenizer/embedding mismatch...")
+    adapter_config_path = adapter_path / "adapter_config.json"
+    if adapter_config_path.exists():
+        import json
+        with open(adapter_config_path, "r") as f:
+            config_data = json.load(f)
+            # PEFT sometimes stores modules_to_save or we can check the weight mismatch 
+            # error directly if we could catch it, but checking common config fields 
+            # or just blindly resizing if we know the target shape (151667) is better.
+            # In this case, we saw the error: shape in current model is 152064, 
+            # but adapter has 151667.
+            target_vocab_size = 151667
+            if base.config.vocab_size != target_vocab_size:
+                print(f"Resizing embeddings from {base.config.vocab_size} to {target_vocab_size}")
+                base.resize_token_embeddings(target_vocab_size)
+
     print(f"Applying adapter from: {adapter_path}")
     model = PeftModel.from_pretrained(base, str(adapter_path))
     model = model.merge_and_unload()
