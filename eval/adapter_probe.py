@@ -16,6 +16,10 @@ def probe_adapter(base_model_name, adapter_path, prompt):
     # Load Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
     
+    # Add special tokens so we can resize embeddings to match the adapter
+    SPECIAL_TOKENS = ["<thinkanywhere>", "</thinkanywhere>"]
+    tokenizer.add_special_tokens({"additional_special_tokens": SPECIAL_TOKENS})
+    
     # Load Base Model
     print("Loading base model...")
     model = AutoModelForCausalLM.from_pretrained(
@@ -24,6 +28,10 @@ def probe_adapter(base_model_name, adapter_path, prompt):
         device_map="auto",
         trust_remote_code=True
     )
+    
+    # Resize embeddings to match the adapter's vocabulary size (151667)
+    print(f"Resizing embeddings to {len(tokenizer)}")
+    model.resize_token_embeddings(len(tokenizer))
     
     # Base Output
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
